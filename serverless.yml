@@ -1,0 +1,63 @@
+plugins:
+  - serverless-offline
+  - serverless-webpack
+  - serverless-dotenv-plugin
+
+service: pub
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+  region: eu-west-1
+  environment:
+    SERVERLESS_STAGE: ${env:SERVERLESS_STAGE, 'dev'}
+    SLACK_API_TOKEN: ${env:SLACK_API_TOKEN}
+    SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
+    SLACK_CLIENT_ID: ${env:SLACK_CLIENT_ID}
+    SLACK_CLIENT_SECRET: ${env:SLACK_CLIENT_SECRET}
+    SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
+    SLACK_APP_REDIRECT_URI: ${env:SLACK_APP_REDIRECT_URI}
+    DYNAMODB_TABLE: ${env:DYNAMODB_TABLE}
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${env:DYNAMODB_TABLE}"
+
+functions:
+  app:
+    handler: handler.app
+    events:
+      - http:
+          method: post
+          path: /slack/events
+      - http:
+          method: get
+          path: /slack/installation
+      - http:
+          method: get
+          path: /slack/oauth
+
+resources:
+  Resources:
+    PubDynamoDbTable:
+      Type: 'AWS::DynamoDB::Table'
+      DeletionPolicy: Retain
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: id
+            AttributeType: S
+        KeySchema:
+          -
+            AttributeName: id
+            KeyType: HASH
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        TableName: ${env:DYNAMODB_TABLE}
