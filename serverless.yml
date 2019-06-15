@@ -31,7 +31,7 @@ provider:
 
 functions:
   app:
-    handler: handler.app
+    handler: src/handler.app
     events:
       - http:
           method: post
