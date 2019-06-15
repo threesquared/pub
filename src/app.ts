@@ -20,7 +20,7 @@ const dynamoDb = new DynamoDB.DocumentClient();
 
 app.client = new WebClient(process.env.SLACK_API_TOKEN);
 
-app.command('/pub', ({ ack, respond }) => {
+app.command('/pub', ({ ack, respond }): void  => {
   ack();
 
   const id = uuid.v1();
@@ -75,7 +75,7 @@ app.command('/pub', ({ ack, respond }) => {
   });
 });
 
-app.action('yes_action', ({ body, action, ack, respond } : SlackActionMiddlewareArgs<BlockAction<ButtonAction>>) => {
+app.action('yes_action', ({ body, action, ack, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): void => {
   ack();
 
   console.log(`Someones on it ${body.user.id}`);
@@ -98,12 +98,12 @@ app.action('yes_action', ({ body, action, ack, respond } : SlackActionMiddleware
       ':value': 1,
     },
     ReturnValues: 'ALL_NEW',
-  }, () => {
+  }, (): void => {
     console.log(`done dynamo ${action.value}`);
   })
 });
 
-app.action('no_action', ({ ack, respond }) => {
+app.action('no_action', ({ ack, respond }): void => {
   ack();
 
   respond({
@@ -112,11 +112,11 @@ app.action('no_action', ({ ack, respond }) => {
   });
 });
 
-app.error((error) => {
+app.error((error): void => {
   console.error(error);
 });
 
-expressApp.get('/slack/installation', (_req: Request, res: Response) => {
+expressApp.get('/slack/installation', (_req: Request, res: Response): void => {
   const clientId = process.env.SLACK_CLIENT_ID;
   const scopesCsv = 'commands,users:read,users:read.email,team:read';
   const state = 'randomly-generated-string';
@@ -124,23 +124,23 @@ expressApp.get('/slack/installation', (_req: Request, res: Response) => {
   res.redirect(url);
 });
 
-expressApp.get('/slack/oauth', (req: Request, res: Response) => {
+expressApp.get('/slack/oauth', (req: Request, res: Response): void => {
   app.client.oauth.access({
     code: req.query.code,
     client_id: process.env.SLACK_CLIENT_ID,
     client_secret: process.env.SLACK_CLIENT_SECRET,
     redirect_uri: process.env.SLACK_REDIRECT_URI
   })
-  .then((apiRes: WebApi.OauthAccessResponse) => {
-    if (apiRes.ok) {
-      console.log(`Succeeded! ${JSON.stringify(apiRes)}`)
-      res.status(200).send(`Thanks!`);
-    } else {
-      console.error(`Failed because of ${apiRes.error}`)
-      res.status(500).send(`Something went wrong! error: ${apiRes.error}`);
-    }
-  }).catch(reason => {
-    console.error(`Failed because ${reason}`)
-    res.status(500).send(`Something went wrong! reason: ${reason}`);
-  });
+    .then((apiRes: WebApi.OauthAccessResponse): void => {
+      if (apiRes.ok) {
+        console.log(`Succeeded! ${JSON.stringify(apiRes)}`)
+        res.status(200).send(`Thanks!`);
+      } else {
+        console.error(`Failed because of ${apiRes.error}`)
+        res.status(500).send(`Something went wrong! error: ${apiRes.error}`);
+      }
+    }).catch((reason): void => {
+      console.error(`Failed because ${reason}`)
+      res.status(500).send(`Something went wrong! reason: ${reason}`);
+    });
 });
