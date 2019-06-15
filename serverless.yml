@@ -8,6 +8,9 @@ service: pub
 provider:
   name: aws
   runtime: nodejs10.x
+  tracing:
+    lambda: true
+  timeout: 20
   region: eu-west-1
   environment:
     SERVERLESS_STAGE: ${env:SERVERLESS_STAGE, 'dev'}

@@ -1,6 +1,6 @@
 import * as WebApi from 'seratch-slack-types/web-api';
 import { Request, Response, Application } from 'express';
-import { App, ExpressReceiver, ButtonAction, BlockAction, SlackActionMiddlewareArgs } from '@slack/bolt';
+import { App, ExpressReceiver, ButtonAction, BlockAction, SlackActionMiddlewareArgs, LogLevel } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
 import { DynamoDB } from 'aws-sdk'
 import uuid from 'uuid';
@@ -13,6 +13,7 @@ export const expressApp: Application = expressReceiver.app;
 
 const app: App = new App({
   token: process.env.SLACK_BOT_TOKEN,
+  logLevel: LogLevel.DEBUG,
   receiver: expressReceiver
 });
 
@@ -20,22 +21,24 @@ const dynamoDb = new DynamoDB.DocumentClient();
 
 app.client = new WebClient(process.env.SLACK_API_TOKEN);
 
-app.command('/pub', ({ ack, respond }): void  => {
+app.command('/pub', async ({ ack, respond }): Promise<void>  => {
   ack();
 
   const id = uuid.v1();
 
   console.log(`Starting pub round ${id}`);
 
-  dynamoDb.put({
+  const data = await dynamoDb.put({
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
       id: id,
       count: 0
     }
-  })
+  });
 
-  respond({
+  console.log(`done dynamo ${data}`);
+
+  await respond({
     response_type: 'in_channel',
     text: '',
     blocks: [
@@ -80,11 +83,6 @@ app.action('yes_action', ({ body, action, ack, respond }: SlackActionMiddlewareA
 
   console.log(`Someones on it ${body.user.id}`);
 
-  respond({
-    response_type: 'ephemeral',
-    text: `yass ${body.user.name}`,
-  });
-
   dynamoDb.update({
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
@@ -98,13 +96,24 @@ app.action('yes_action', ({ body, action, ack, respond }: SlackActionMiddlewareA
       ':value': 1,
     },
     ReturnValues: 'ALL_NEW',
-  }, (): void => {
-    console.log(`done dynamo ${action.value}`);
+  }, (err, data): void => {
+    if (err) {
+      console.log(err);
+    } else {
+      console.log(`done dynamo ${data}`);
+
+      respond({
+        response_type: 'ephemeral',
+        text: `yass ${body.user.name}`,
+      });
+    }
   })
 });
 
-app.action('no_action', ({ ack, respond }): void => {
+app.action('no_action', ({ body, ack, respond }): void => {
   ack();
+
+  console.log(`Someone is not ${body.user.id}`);
 
   respond({
     response_type: 'ephemeral',
