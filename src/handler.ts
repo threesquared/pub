@@ -1,12 +1,5 @@
-import serverless from 'serverless-http';
+import awsServerlessExpress from 'aws-serverless-express';
 import { expressApp } from './app';
+const server = awsServerlessExpress.createServer(expressApp);
 
-const handler = serverless(expressApp);
-
-export const app = async (event, context): Promise<any> => {
-  const result = await handler(event, context);
-
-  console.log('HERE');
-
-  return result;
-};
+export const app = (event, context): Promise<void> => awsServerlessExpress.proxy(server, event, context, 'PROMISE').promise;

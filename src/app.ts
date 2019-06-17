@@ -21,14 +21,14 @@ const dynamoDb = new DynamoDB.DocumentClient();
 
 app.client = new WebClient(process.env.SLACK_API_TOKEN);
 
-app.command('/pub', async ({ ack, respond }): Promise<void>  => {
+app.command('/pub', async ({ ack, body }): Promise<void> => {
   ack();
 
   const id = uuid.v1();
 
   console.log(`Starting pub round ${id}`);
 
-  const data = await dynamoDb.put({
+  dynamoDb.put({
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
       id: id,
@@ -36,10 +36,8 @@ app.command('/pub', async ({ ack, respond }): Promise<void>  => {
     }
   });
 
-  console.log(`done dynamo ${data}`);
-
-  await respond({
-    response_type: 'in_channel',
+  const lol = await app.client.chat.postMessage({
+    channel: body.channel_id,
     text: '',
     blocks: [
       {
@@ -76,14 +74,16 @@ app.command('/pub', async ({ ack, respond }): Promise<void>  => {
       }
     ]
   });
+
+  console.log('Done', lol);
 });
 
-app.action('yes_action', ({ body, action, ack, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): void => {
+app.action('yes_action', async ({ body, action, ack }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
   ack();
 
   console.log(`Someones on it ${body.user.id}`);
 
-  dynamoDb.update({
+  const data = await dynamoDb.update({
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
       id: action.value
@@ -96,27 +96,25 @@ app.action('yes_action', ({ body, action, ack, respond }: SlackActionMiddlewareA
       ':value': 1,
     },
     ReturnValues: 'ALL_NEW',
-  }, (err, data): void => {
-    if (err) {
-      console.log(err);
-    } else {
-      console.log(`done dynamo ${data}`);
+  }).promise();
 
-      respond({
-        response_type: 'ephemeral',
-        text: `yass ${body.user.name}`,
-      });
-    }
-  })
+  console.log('done dynamo', data);
+
+  await app.client.chat.postEphemeral({
+    channel: body.channel.id,
+    user: body.user.id,
+    text: `yass ${body.user.name}`,
+  });
 });
 
-app.action('no_action', ({ body, ack, respond }): void => {
+app.action('no_action', async ({ body, ack }): Promise<void> => {
   ack();
 
   console.log(`Someone is not ${body.user.id}`);
 
-  respond({
-    response_type: 'ephemeral',
+  await app.client.chat.postEphemeral({
+    channel: body.channel.id,
+    user: body.user.id,
     text: 'you suck',
   });
 });
