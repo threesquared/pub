@@ -1,5 +1,13 @@
-import awsServerlessExpress from 'aws-serverless-express';
+import { createServer, proxy } from 'aws-serverless-express';
 import { expressApp } from './app';
-const server = awsServerlessExpress.createServer(expressApp);
 
-export const app = (event, context): Promise<void> => awsServerlessExpress.proxy(server, event, context, 'PROMISE').promise;
+export const app = (event, context, callback): void => {
+  const server = createServer(expressApp);
+
+  context.succeed = (response): void => {
+    server.close();
+    callback(null, response);
+  };
+
+  return proxy(server, event, context);
+};
