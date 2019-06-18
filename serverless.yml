@@ -8,8 +8,6 @@ service: pub
 provider:
   name: aws
   runtime: nodejs10.x
-  tracing:
-    lambda: true
   timeout: 20
   region: eu-west-1
   environment:
@@ -55,7 +53,7 @@ resources:
         AttributeDefinitions:
           -
             AttributeName: id
-            AttributeType: S
+            AttributeType: N
         KeySchema:
           -
             AttributeName: id

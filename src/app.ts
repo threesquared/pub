@@ -4,6 +4,7 @@ import { App, ExpressReceiver, ButtonAction, BlockAction, SlackActionMiddlewareA
 import { WebClient } from '@slack/web-api';
 import { DynamoDB } from 'aws-sdk'
 import uuid from 'uuid';
+import axios from 'axios';
 
 const expressReceiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET
@@ -28,7 +29,7 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
 
   console.log(`Starting pub round ${id}`);
 
-  dynamoDb.put({
+  await dynamoDb.put({
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
       id: id,
@@ -36,7 +37,7 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
     }
   });
 
-  const lol = await app.client.chat.postMessage({
+  await app.client.chat.postMessage({
     channel: body.channel_id,
     text: '',
     blocks: [
@@ -44,7 +45,7 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": `soooooooo, Pub?`
+          "text": "soooooooo, Pub? :beers:"
         },
       },
       {
@@ -71,11 +72,18 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
             "value": "no"
           }
         ]
+      },
+      {
+        "type": "context",
+        "elements": [
+          {
+            "type": "mrkdwn",
+            "text": `ID: ${id}`
+          }
+        ]
       }
     ]
   });
-
-  console.log('Done', lol);
 });
 
 app.action('yes_action', async ({ body, action, ack }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
@@ -98,12 +106,10 @@ app.action('yes_action', async ({ body, action, ack }: SlackActionMiddlewareArgs
     ReturnValues: 'ALL_NEW',
   }).promise();
 
-  console.log('done dynamo', data);
-
-  await app.client.chat.postEphemeral({
-    channel: body.channel.id,
-    user: body.user.id,
-    text: `yass ${body.user.name}`,
+  await axios.post(body.response_url, {
+    response_type: 'ephemeral',
+    replace_original: false,
+    text: `yass ${body.user.name}, ${data.Attributes.count} people in so far!`,
   });
 });
 
@@ -112,9 +118,9 @@ app.action('no_action', async ({ body, ack }): Promise<void> => {
 
   console.log(`Someone is not ${body.user.id}`);
 
-  await app.client.chat.postEphemeral({
-    channel: body.channel.id,
-    user: body.user.id,
+  await axios.post(body.response_url, {
+    response_type: 'ephemeral',
+    replace_original: false,
     text: 'you suck',
   });
 });
@@ -137,17 +143,16 @@ expressApp.get('/slack/oauth', (req: Request, res: Response): void => {
     client_id: process.env.SLACK_CLIENT_ID,
     client_secret: process.env.SLACK_CLIENT_SECRET,
     redirect_uri: process.env.SLACK_REDIRECT_URI
-  })
-    .then((apiRes: WebApi.OauthAccessResponse): void => {
-      if (apiRes.ok) {
-        console.log(`Succeeded! ${JSON.stringify(apiRes)}`)
-        res.status(200).send(`Thanks!`);
-      } else {
-        console.error(`Failed because of ${apiRes.error}`)
-        res.status(500).send(`Something went wrong! error: ${apiRes.error}`);
-      }
-    }).catch((reason): void => {
-      console.error(`Failed because ${reason}`)
-      res.status(500).send(`Something went wrong! reason: ${reason}`);
-    });
+  }).then((apiRes: WebApi.OauthAccessResponse): void => {
+    if (apiRes.ok) {
+      console.log(`Succeeded! ${JSON.stringify(apiRes)}`)
+      res.status(200).send(`Thanks!`);
+    } else {
+      console.error(`Failed because of ${apiRes.error}`)
+      res.status(500).send(`Something went wrong! error: ${apiRes.error}`);
+    }
+  }).catch((reason): void => {
+    console.error(`Failed because ${reason}`)
+    res.status(500).send(`Something went wrong! reason: ${reason}`);
+  });
 });
