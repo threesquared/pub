@@ -4,9 +4,8 @@
   "description": "Pub?",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "serverless offline --printOutput",
-    "deploy": "aws-vault exec personal --no-session -- serverless deploy --stage prod -v --force",
+    "deploy": "serverless deploy --stage production -v --force",
     "lint": "eslint src/**.ts"
   },
   "dependencies": {
