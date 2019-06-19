@@ -7,7 +7,7 @@ import uuid from 'uuid';
 import axios from 'axios';
 
 const expressReceiver = new ExpressReceiver({
-  signingSecret: process.env.SLACK_SIGNING_SECRET
+  signingSecret: process.env.SLACK_SIGNING_SECRET as string
 });
 
 export const expressApp: Application = expressReceiver.app;
@@ -30,7 +30,7 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
   console.log(`Starting pub round ${id}`);
 
   await dynamoDb.put({
-    TableName: process.env.DYNAMODB_TABLE,
+    TableName: process.env.DYNAMODB_TABLE as string,
     Item: {
       id: id,
       count: 0
@@ -92,7 +92,7 @@ app.action('yes_action', async ({ body, action, ack }: SlackActionMiddlewareArgs
   console.log(`Someones on it ${body.user.id}`);
 
   const data = await dynamoDb.update({
-    TableName: process.env.DYNAMODB_TABLE,
+    TableName: process.env.DYNAMODB_TABLE as string,
     Key: {
       id: action.value
     },
@@ -109,7 +109,7 @@ app.action('yes_action', async ({ body, action, ack }: SlackActionMiddlewareArgs
   await axios.post(body.response_url, {
     response_type: 'ephemeral',
     replace_original: false,
-    text: `yass ${body.user.name}, ${data.Attributes.count} people in so far!`,
+    text: `yass ${body.user.name}, ${data.Attributes ? data.Attributes.count : 0} people in so far!`,
   });
 });
 
@@ -140,9 +140,9 @@ expressApp.get('/slack/installation', (_req: Request, res: Response): void => {
 expressApp.get('/slack/oauth', (req: Request, res: Response): void => {
   app.client.oauth.access({
     code: req.query.code,
-    client_id: process.env.SLACK_CLIENT_ID,
-    client_secret: process.env.SLACK_CLIENT_SECRET,
-    redirect_uri: process.env.SLACK_REDIRECT_URI
+    client_id: process.env.SLACK_CLIENT_ID as string,
+    client_secret: process.env.SLACK_CLIENT_SECRET as string,
+    redirect_uri: process.env.SLACK_REDIRECT_URI as string
   }).then((apiRes: WebApi.OauthAccessResponse): void => {
     if (apiRes.ok) {
       console.log(`Succeeded! ${JSON.stringify(apiRes)}`)
