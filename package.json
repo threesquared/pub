@@ -15,8 +15,7 @@
     "@slack/webhook": "^5.0.0",
     "@types/aws-serverless-express": "^3.3.1",
     "aws-serverless-express": "^3.3.6",
-    "serverless": "^1.41.1",
-    "uuid": "^3.3.2"
+    "serverless": "^1.41.1"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.27",

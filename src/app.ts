@@ -3,8 +3,6 @@ import { Request, Response, Application } from 'express';
 import { App, ExpressReceiver, ButtonAction, BlockAction, SlackActionMiddlewareArgs, LogLevel } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
 import { DynamoDB } from 'aws-sdk'
-import uuid from 'uuid';
-import axios from 'axios';
 
 const expressReceiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string
@@ -22,20 +20,29 @@ const dynamoDb = new DynamoDB.DocumentClient();
 
 app.client = new WebClient(process.env.SLACK_API_TOKEN);
 
-app.command('/pub', async ({ ack, body }): Promise<void> => {
+/**
+ * Slash command
+ */
+app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
   ack();
 
-  const id = uuid.v1();
+  try {
+    await dynamoDb.put({
+      TableName: process.env.DYNAMODB_TABLE as string,
+      Item: {
+        id: body.channel_id,
+        users: []
+      },
+      ConditionExpression: "attribute_not_exists(id)"
+    }).promise();
+  } catch (error) {
+    return respond({
+      response_type: 'ephemeral',
+      text: 'There is a pub vote in this channel already',
+    });
+  }
 
-  console.log(`Starting pub round ${id}`);
-
-  await dynamoDb.put({
-    TableName: process.env.DYNAMODB_TABLE as string,
-    Item: {
-      id: id,
-      count: 0
-    }
-  });
+  console.log(`Starting pub round in ${body.channel_id}`);
 
   await app.client.chat.postMessage({
     channel: body.channel_id,
@@ -45,7 +52,7 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
         "type": "section",
         "text": {
           "type": "mrkdwn",
-          "text": "soooooooo, Pub? :beers:"
+          "text": "Soooooooo, Pub? :beers:"
         },
       },
       {
@@ -59,7 +66,7 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
               "emoji": true,
               "text": "Yes"
             },
-            "value": id
+            "value": body.channel_id
           },
           {
             "type": "button",
@@ -70,15 +77,16 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
               "text": "No"
             },
             "value": "no"
-          }
-        ]
-      },
-      {
-        "type": "context",
-        "elements": [
+          },
           {
-            "type": "mrkdwn",
-            "text": `ID: ${id}`
+            "type": "button",
+            "action_id": "end_action",
+            "text": {
+              "type": "plain_text",
+              "emoji": true,
+              "text": "End Round"
+            },
+            "value": body.channel_id
           }
         ]
       }
@@ -86,7 +94,10 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
   });
 });
 
-app.action('yes_action', async ({ body, action, ack }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
+/**
+ * Yes button action
+ */
+app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
   ack();
 
   console.log(`Someones on it ${body.user.id}`);
@@ -96,39 +107,77 @@ app.action('yes_action', async ({ body, action, ack }: SlackActionMiddlewareArgs
     Key: {
       id: action.value
     },
-    UpdateExpression: 'add #count :value',
+    UpdateExpression: 'SET #users = list_append(#users, :value)',
     ExpressionAttributeNames: {
-      '#count': 'count',
+      '#users': 'users',
     },
     ExpressionAttributeValues: {
-      ':value': 1,
+      ':value': [body.user.id],
     },
     ReturnValues: 'ALL_NEW',
   }).promise();
 
-  await axios.post(body.response_url, {
+  const users: string[] = data.Attributes ? data.Attributes.users : [];
+
+  respond({
     response_type: 'ephemeral',
     replace_original: false,
-    text: `yass ${body.user.name}, ${data.Attributes ? data.Attributes.count : 0} people in so far!`,
+    text: `Yass ${body.user.name}, ${users.length} people in so far!`,
   });
 });
 
-app.action('no_action', async ({ body, ack }): Promise<void> => {
+/**
+ * No button action
+ */
+app.action('no_action', async ({ body, ack, respond }): Promise<void> => {
   ack();
 
   console.log(`Someone is not ${body.user.id}`);
 
-  await axios.post(body.response_url, {
+  respond({
     response_type: 'ephemeral',
     replace_original: false,
-    text: 'you suck',
+    text: 'Well you suck',
   });
 });
 
-app.error((error): void => {
-  console.error(error);
+/**
+ * End round button action
+ */
+app.action('end_action', async ({ body, ack, action, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
+  ack();
+
+  console.log(`Round ended by ${body.user.id}`);
+
+  const data = await dynamoDb.delete({
+    TableName: process.env.DYNAMODB_TABLE as string,
+    Key: {
+      id: action.value
+    },
+    ReturnValues: 'ALL_OLD'
+  }).promise();
+
+  const users: string[] = data.Attributes ? data.Attributes.users : [];
+  const count: number = users.length;
+  const userString = users.map((user): string => `<@${user}>`).join(', ');
+  let text: string;
+
+  if (count >= 3) {
+    text = `Round ended with ${count} people on it: ${userString} Assemble!`;
+  } else {
+    text = 'Not enough people are on it, try harder next time';
+  }
+
+  respond({
+    response_type: 'in_channel',
+    replace_original: true,
+    text,
+  });
 });
 
+/**
+ * Bot installation routes
+ */
 expressApp.get('/slack/installation', (_req: Request, res: Response): void => {
   const clientId = process.env.SLACK_CLIENT_ID;
   const scopesCsv = 'commands,users:read,users:read.email,team:read';
@@ -155,4 +204,8 @@ expressApp.get('/slack/oauth', (req: Request, res: Response): void => {
     console.error(`Failed because ${reason}`)
     res.status(500).send(`Something went wrong! reason: ${reason}`);
   });
+});
+
+app.error((error): void => {
+  console.error(error);
 });
