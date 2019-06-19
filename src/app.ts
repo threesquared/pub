@@ -102,7 +102,24 @@ app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddl
 
   console.log(`Someones on it ${body.user.id}`);
 
-  const data = await dynamoDb.update({
+  const data = await dynamoDb.get({
+    TableName: process.env.DYNAMODB_TABLE as string,
+    Key: {
+      id: action.value
+    },
+  }).promise();
+
+  const users = data.Item ? data.Item.users : [];
+
+  if(users.includes(body.user.id)) {
+    return respond({
+      response_type: 'ephemeral',
+      replace_original: false,
+      text: 'You have already voted',
+    });
+  }
+
+  await dynamoDb.update({
     TableName: process.env.DYNAMODB_TABLE as string,
     Key: {
       id: action.value
@@ -117,12 +134,10 @@ app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddl
     ReturnValues: 'ALL_NEW',
   }).promise();
 
-  const users: string[] = data.Attributes ? data.Attributes.users : [];
-
   respond({
     response_type: 'ephemeral',
     replace_original: false,
-    text: `Yass ${body.user.name}, ${users.length} people in so far!`,
+    text: `Yass ${body.user.name}, ${users.length + 1} people in so far!`,
   });
 });
 
