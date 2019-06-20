@@ -1,6 +1,6 @@
 import { createServer, proxy } from 'aws-serverless-express';
-import { expressApp } from './app';
 import { APIGatewayEvent, Context, Callback } from 'aws-lambda';
+import expressApp from './app';
 
 export const app = (
   event: APIGatewayEvent,

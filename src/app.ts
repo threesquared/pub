@@ -2,23 +2,19 @@ import * as WebApi from 'seratch-slack-types/web-api';
 import { Request, Response, Application } from 'express';
 import { App, ExpressReceiver, ButtonAction, BlockAction, SlackActionMiddlewareArgs, LogLevel } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
-import { DynamoDB } from 'aws-sdk'
+import { startRound, getRoundData, addVote, endRound } from './db';
 
 const expressReceiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string
 });
 
-export const expressApp: Application = expressReceiver.app;
+const expressApp: Application = expressReceiver.app;
 
-const app: App = new App({
+const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   logLevel: LogLevel.DEBUG,
   receiver: expressReceiver
 });
-
-const dynamoDb = new DynamoDB.DocumentClient();
-
-app.client = new WebClient(process.env.SLACK_API_TOKEN);
 
 /**
  * Slash command
@@ -26,15 +22,10 @@ app.client = new WebClient(process.env.SLACK_API_TOKEN);
 app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
   ack();
 
+  const channelId: string = body.channel_id;
+
   try {
-    await dynamoDb.put({
-      TableName: process.env.DYNAMODB_TABLE as string,
-      Item: {
-        id: body.channel_id,
-        users: []
-      },
-      ConditionExpression: "attribute_not_exists(id)"
-    }).promise();
+    await startRound(channelId);
   } catch (error) {
     return respond({
       response_type: 'ephemeral',
@@ -42,10 +33,10 @@ app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
     });
   }
 
-  console.log(`Starting pub round in ${body.channel_id}`);
+  console.log(`Starting pub round in ${channelId}`);
 
-  await app.client.chat.postMessage({
-    channel: body.channel_id,
+  respond({
+    response_type: 'in_channel',
     text: '',
     blocks: [
       {
@@ -66,7 +57,7 @@ app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
               "emoji": true,
               "text": "Yes"
             },
-            "value": body.channel_id
+            "value": channelId
           },
           {
             "type": "button",
@@ -86,7 +77,7 @@ app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
               "emoji": true,
               "text": "End Round"
             },
-            "value": body.channel_id
+            "value": channelId
           }
         ]
       }
@@ -100,18 +91,16 @@ app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
 app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
   ack();
 
-  console.log(`Someones on it ${body.user.id}`);
+  const channelId: string = action.value;
+  const userId: string = body.user.id;
+  const userName: string = body.user.name;
 
-  const data = await dynamoDb.get({
-    TableName: process.env.DYNAMODB_TABLE as string,
-    Key: {
-      id: action.value
-    },
-  }).promise();
+  console.log(`Someones on it ${userId}`);
 
-  const users = data.Item ? data.Item.users : [];
+  const data = await getRoundData(channelId);
+  const users: string[] = data.Item ? data.Item.users as string[] : [];
 
-  if(users.includes(body.user.id)) {
+  if(users.includes(userId)) {
     return respond({
       response_type: 'ephemeral',
       replace_original: false,
@@ -119,25 +108,12 @@ app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddl
     });
   }
 
-  await dynamoDb.update({
-    TableName: process.env.DYNAMODB_TABLE as string,
-    Key: {
-      id: action.value
-    },
-    UpdateExpression: 'SET #users = list_append(#users, :value)',
-    ExpressionAttributeNames: {
-      '#users': 'users',
-    },
-    ExpressionAttributeValues: {
-      ':value': [body.user.id],
-    },
-    ReturnValues: 'ALL_NEW',
-  }).promise();
+  await addVote(channelId, userId);
 
   respond({
     response_type: 'ephemeral',
     replace_original: false,
-    text: `Yass ${body.user.name}, ${users.length + 1} people in so far!`,
+    text: `Yass ${userName}!`,
   });
 });
 
@@ -147,7 +123,9 @@ app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddl
 app.action('no_action', async ({ body, ack, respond }): Promise<void> => {
   ack();
 
-  console.log(`Someone is not ${body.user.id}`);
+  const userId: string = body.user.id;
+
+  console.log(`Someone is not ${userId}`);
 
   respond({
     response_type: 'ephemeral',
@@ -164,17 +142,12 @@ app.action('end_action', async ({ body, ack, action, respond }: SlackActionMiddl
 
   console.log(`Round ended by ${body.user.id}`);
 
-  const data = await dynamoDb.delete({
-    TableName: process.env.DYNAMODB_TABLE as string,
-    Key: {
-      id: action.value
-    },
-    ReturnValues: 'ALL_OLD'
-  }).promise();
+  const data = await endRound(action.value);
+  const users: string[] = data.Attributes ? data.Attributes.users as string[] : [];
 
-  const users: string[] = data.Attributes ? data.Attributes.users : [];
   const count: number = users.length;
-  const userString = users.map((user): string => `<@${user}>`).join(', ');
+  const userString: string = users.map((user): string => `<@${user}>`).join(', ');
+
   let text: string;
 
   if (count >= 3) {
@@ -202,7 +175,9 @@ expressApp.get('/slack/installation', (_req: Request, res: Response): void => {
 });
 
 expressApp.get('/slack/oauth', (req: Request, res: Response): void => {
-  app.client.oauth.access({
+  const client = new WebClient(process.env.SLACK_API_TOKEN);
+
+  client.oauth.access({
     code: req.query.code,
     client_id: process.env.SLACK_CLIENT_ID as string,
     client_secret: process.env.SLACK_CLIENT_SECRET as string,
@@ -224,3 +199,5 @@ expressApp.get('/slack/oauth', (req: Request, res: Response): void => {
 app.error((error): void => {
   console.error(error);
 });
+
+export default expressApp;
