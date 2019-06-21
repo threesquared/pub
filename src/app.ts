@@ -23,9 +23,10 @@ app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
   ack();
 
   const channelId: string = body.channel_id;
+  const userId: string = body.user_id;
 
   try {
-    await startRound(channelId);
+    await startRound(channelId, userId);
   } catch (error) {
     return respond({
       response_type: 'ephemeral',
@@ -143,11 +144,23 @@ app.action('no_action', async ({ body, action, ack, respond }: SlackActionMiddle
 app.action('end_action', async ({ body, ack, action, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
   ack();
 
+  const channelId: string = action.value;
+  const userId: string = body.user.id;
+  let data;
+
+  try {
+    data = await endRound(channelId, userId);
+  } catch (error) {
+    return respond({
+      response_type: 'ephemeral',
+      replace_original: false,
+      text: 'You did not start this round',
+    });
+  }
+
   console.log(`Round ended by ${body.user.id}`);
 
-  const data = await endRound(action.value);
   const users: string[] = data.Attributes ? data.Attributes.users as string[] : [];
-
   const count: number = users.length;
   const userString: string = users.map((user): string => `<@${user}>`).join(', ');
 
@@ -161,7 +174,8 @@ app.action('end_action', async ({ body, ack, action, respond }: SlackActionMiddl
 
   respond({
     response_type: 'in_channel',
-    replace_original: true,
+    replace_original: false,
+    delete_original: true,
     text,
   });
 });

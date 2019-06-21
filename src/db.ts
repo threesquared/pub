@@ -5,10 +5,11 @@ import { PromiseResult } from 'aws-sdk/lib/request';
 const table = process.env.DYNAMODB_TABLE as string;
 const dynamo = new DynamoDB.DocumentClient();
 
-export const startRound = (id: string): Promise<PromiseResult<PutItemOutput, AWSError>> => dynamo.put({
+export const startRound = (id: string, userId: string): Promise<PromiseResult<PutItemOutput, AWSError>> => dynamo.put({
   TableName: table,
   Item: {
     id,
+    userId,
     users: []
   },
   ConditionExpression: "attribute_not_exists(id)"
@@ -59,10 +60,17 @@ export const removeVote = async (id: string, userId: string): Promise<PromiseRes
   }).promise()
 }
 
-export const endRound = (id: string): Promise<PromiseResult<DeleteItemOutput, AWSError>> => dynamo.delete({
+export const endRound = (id: string, userId: string): Promise<PromiseResult<DeleteItemOutput, AWSError>> => dynamo.delete({
   TableName: table,
   Key: {
     id
+  },
+  ConditionExpression:"#userId = :userId",
+  ExpressionAttributeNames: {
+    '#userId': 'userId',
+  },
+  ExpressionAttributeValues: {
+    ":userId": userId
   },
   ReturnValues: 'ALL_OLD'
 }).promise()
