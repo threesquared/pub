@@ -38,6 +38,27 @@ export const addVote = (id: string, userId: string): Promise<PromiseResult<Updat
   ReturnValues: 'ALL_NEW',
 }).promise()
 
+export const removeVote = async (id: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => {
+  const data = await getRoundData(id);
+
+  const users: string[] = data.Item ? data.Item.users as string[] : [];
+  const filteredUsers = users.filter((user): boolean => user !== userId);
+
+  return await dynamo.update({
+    TableName: table,
+    Key: {
+      id
+    },
+    UpdateExpression: 'SET #users = :value',
+    ExpressionAttributeNames: {
+      '#users': 'users',
+    },
+    ExpressionAttributeValues: {
+      ':value': filteredUsers,
+    }
+  }).promise()
+}
+
 export const endRound = (id: string): Promise<PromiseResult<DeleteItemOutput, AWSError>> => dynamo.delete({
   TableName: table,
   Key: {

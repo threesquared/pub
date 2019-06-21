@@ -2,7 +2,7 @@ import * as WebApi from 'seratch-slack-types/web-api';
 import { Request, Response, Application } from 'express';
 import { App, ExpressReceiver, ButtonAction, BlockAction, SlackActionMiddlewareArgs, LogLevel } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
-import { startRound, getRoundData, addVote, endRound } from './db';
+import { startRound, getRoundData, addVote, removeVote, endRound } from './db';
 
 const expressReceiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET as string
@@ -67,7 +67,7 @@ app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
               "emoji": true,
               "text": "No"
             },
-            "value": "no"
+            "value": channelId
           },
           {
             "type": "button",
@@ -120,12 +120,15 @@ app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddl
 /**
  * No button action
  */
-app.action('no_action', async ({ body, ack, respond }): Promise<void> => {
+app.action('no_action', async ({ body, action, ack, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
   ack();
 
+  const channelId: string = action.value;
   const userId: string = body.user.id;
 
   console.log(`Someone is not ${userId}`);
+
+  await removeVote(channelId, userId);
 
   respond({
     response_type: 'ephemeral',
