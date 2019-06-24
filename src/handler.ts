@@ -1,12 +1,13 @@
 import { createServer, proxy } from 'aws-serverless-express';
 import { APIGatewayEvent, Context, Callback } from 'aws-lambda';
+import { Server } from 'http';
 import expressApp from './app';
 
 export const app = (
   event: APIGatewayEvent,
   context: Context,
-  callback: Callback
-): any => {
+  callback: Callback,
+): Server => {
   const server = createServer(expressApp);
 
   context.succeed = (response: string): void => {

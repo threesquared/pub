@@ -1,4 +1,4 @@
-import { DynamoDB, AWSError } from 'aws-sdk'
+import { DynamoDB, AWSError } from 'aws-sdk';
 import { PutItemOutput, GetItemOutput, UpdateItemOutput, DeleteItemOutput } from 'aws-sdk/clients/dynamodb';
 import { PromiseResult } from 'aws-sdk/lib/request';
 
@@ -10,22 +10,22 @@ export const startRound = (id: string, userId: string): Promise<PromiseResult<Pu
   Item: {
     id,
     userId,
-    users: []
+    users: [],
   },
-  ConditionExpression: "attribute_not_exists(id)"
-}).promise()
+  ConditionExpression: 'attribute_not_exists(id)',
+}).promise();
 
 export const getRoundData = (id: string): Promise<PromiseResult<GetItemOutput, AWSError>> => dynamo.get({
   TableName: table,
   Key: {
-    id
+    id,
   },
-}).promise()
+}).promise();
 
 export const addVote = (id: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => dynamo.update({
   TableName: table,
   Key: {
-    id
+    id,
   },
   UpdateExpression: 'SET #users = list_append(#users, :value)',
   ExpressionAttributeNames: {
@@ -33,11 +33,11 @@ export const addVote = (id: string, userId: string): Promise<PromiseResult<Updat
   },
   ExpressionAttributeValues: {
     ':value': [
-      userId
+      userId,
     ],
   },
   ReturnValues: 'ALL_NEW',
-}).promise()
+}).promise();
 
 export const removeVote = async (id: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => {
   const data = await getRoundData(id);
@@ -45,10 +45,10 @@ export const removeVote = async (id: string, userId: string): Promise<PromiseRes
   const users: string[] = data.Item ? data.Item.users as string[] : [];
   const filteredUsers = users.filter((user): boolean => user !== userId);
 
-  return await dynamo.update({
+  return dynamo.update({
     TableName: table,
     Key: {
-      id
+      id,
     },
     UpdateExpression: 'SET #users = :value',
     ExpressionAttributeNames: {
@@ -56,21 +56,21 @@ export const removeVote = async (id: string, userId: string): Promise<PromiseRes
     },
     ExpressionAttributeValues: {
       ':value': filteredUsers,
-    }
-  }).promise()
-}
+    },
+  }).promise();
+};
 
 export const endRound = (id: string, userId: string): Promise<PromiseResult<DeleteItemOutput, AWSError>> => dynamo.delete({
   TableName: table,
   Key: {
-    id
+    id,
   },
-  ConditionExpression:"#userId = :userId",
+  ConditionExpression: '#userId = :userId',
   ExpressionAttributeNames: {
     '#userId': 'userId',
   },
   ExpressionAttributeValues: {
-    ":userId": userId
+    ':userId': userId,
   },
-  ReturnValues: 'ALL_OLD'
-}).promise()
+  ReturnValues: 'ALL_OLD',
+}).promise();

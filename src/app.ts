@@ -1,11 +1,10 @@
-import * as WebApi from 'seratch-slack-types/web-api';
 import { Request, Response, Application } from 'express';
 import { App, ExpressReceiver, ButtonAction, BlockAction, SlackActionMiddlewareArgs, LogLevel } from '@slack/bolt';
-import { WebClient } from '@slack/web-api';
+import { WebClient, WebAPICallResult } from '@slack/web-api';
 import { startRound, getRoundData, addVote, removeVote, endRound } from './db';
 
 const expressReceiver = new ExpressReceiver({
-  signingSecret: process.env.SLACK_SIGNING_SECRET as string
+  signingSecret: process.env.SLACK_SIGNING_SECRET as string,
 });
 
 const expressApp: Application = expressReceiver.app;
@@ -13,22 +12,20 @@ const expressApp: Application = expressReceiver.app;
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   logLevel: LogLevel.DEBUG,
-  receiver: expressReceiver
+  receiver: expressReceiver,
 });
 
 /**
  * Slash command
  */
-app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
-  ack();
-
+app.command('/pub', async ({ ack, body }): Promise<void> => {
   const channelId: string = body.channel_id;
   const userId: string = body.user_id;
 
   try {
     await startRound(channelId, userId);
   } catch (error) {
-    return respond({
+    return ack({
       response_type: 'ephemeral',
       text: 'There is a pub vote in this channel already',
     });
@@ -36,60 +33,65 @@ app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
 
   console.log(`Starting pub round in ${channelId}`);
 
-  respond({
+  return ack({
     response_type: 'in_channel',
     text: '',
     blocks: [
       {
-        "type": "section",
-        "text": {
-          "type": "mrkdwn",
-          "text": "Soooooooo, Pub? :beers:"
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: 'Soooooooo, Pub? :beers:',
         },
       },
       {
-        "type": "actions",
-        "elements": [
+        type: 'actions',
+        elements: [
           {
-            "type": "button",
-            "action_id": "yes_action",
-            "text": {
-              "type": "plain_text",
-              "emoji": true,
-              "text": "Yes"
+            type: 'button',
+            action_id: 'yes_action',
+            text: {
+              type: 'plain_text',
+              emoji: true,
+              text: 'Yes',
             },
-            "value": channelId
+            value: channelId,
           },
           {
-            "type": "button",
-            "action_id": "no_action",
-            "text": {
-              "type": "plain_text",
-              "emoji": true,
-              "text": "No"
+            type: 'button',
+            action_id: 'no_action',
+            text: {
+              type: 'plain_text',
+              emoji: true,
+              text: 'No',
             },
-            "value": channelId
+            value: channelId,
           },
           {
-            "type": "button",
-            "action_id": "end_action",
-            "text": {
-              "type": "plain_text",
-              "emoji": true,
-              "text": "End Round"
+            type: 'button',
+            action_id: 'end_action',
+            text: {
+              type: 'plain_text',
+              emoji: true,
+              text: 'End Round',
             },
-            "value": channelId
-          }
-        ]
-      }
-    ]
+            value: channelId,
+          },
+        ],
+      },
+    ],
   });
 });
 
 /**
  * Yes button action
  */
-app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
+app.action('yes_action', async ({
+  body,
+  action,
+  ack,
+  respond,
+}: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
   ack();
 
   const channelId: string = action.value;
@@ -101,7 +103,7 @@ app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddl
   const data = await getRoundData(channelId);
   const users: string[] = data.Item ? data.Item.users as string[] : [];
 
-  if(users.includes(userId)) {
+  if (users.includes(userId)) {
     return respond({
       response_type: 'ephemeral',
       replace_original: false,
@@ -111,7 +113,7 @@ app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddl
 
   await addVote(channelId, userId);
 
-  respond({
+  return respond({
     response_type: 'ephemeral',
     replace_original: false,
     text: `Yass ${userName}!`,
@@ -121,7 +123,12 @@ app.action('yes_action', async ({ body, action, ack, respond }: SlackActionMiddl
 /**
  * No button action
  */
-app.action('no_action', async ({ body, action, ack, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
+app.action('no_action', async ({
+  body,
+  action,
+  ack,
+  respond,
+}: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
   ack();
 
   const channelId: string = action.value;
@@ -131,7 +138,7 @@ app.action('no_action', async ({ body, action, ack, respond }: SlackActionMiddle
 
   await removeVote(channelId, userId);
 
-  respond({
+  return respond({
     response_type: 'ephemeral',
     replace_original: false,
     text: 'Well you suck',
@@ -141,7 +148,12 @@ app.action('no_action', async ({ body, action, ack, respond }: SlackActionMiddle
 /**
  * End round button action
  */
-app.action('end_action', async ({ body, ack, action, respond }: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
+app.action('end_action', async ({
+  body,
+  ack,
+  action,
+  respond,
+}: SlackActionMiddlewareArgs<BlockAction<ButtonAction>>): Promise<void> => {
   ack();
 
   const channelId: string = action.value;
@@ -172,7 +184,7 @@ app.action('end_action', async ({ body, ack, action, respond }: SlackActionMiddl
     text = 'Not enough people are on it, try harder next time';
   }
 
-  respond({
+  return respond({
     response_type: 'in_channel',
     replace_original: false,
     delete_original: true,
@@ -198,17 +210,17 @@ expressApp.get('/slack/oauth', (req: Request, res: Response): void => {
     code: req.query.code,
     client_id: process.env.SLACK_CLIENT_ID as string,
     client_secret: process.env.SLACK_CLIENT_SECRET as string,
-    redirect_uri: process.env.SLACK_REDIRECT_URI as string
-  }).then((apiRes: WebApi.OauthAccessResponse): void => {
+    redirect_uri: process.env.SLACK_REDIRECT_URI as string,
+  }).then((apiRes: WebAPICallResult): void => {
     if (apiRes.ok) {
-      console.log(`Succeeded! ${JSON.stringify(apiRes)}`)
-      res.status(200).send(`Thanks!`);
+      console.log(`Succeeded! ${JSON.stringify(apiRes)}`);
+      res.status(200).send('Thanks!');
     } else {
-      console.error(`Failed because of ${apiRes.error}`)
+      console.error(`Failed because of ${apiRes.error}`);
       res.status(500).send(`Something went wrong! error: ${apiRes.error}`);
     }
   }).catch((reason): void => {
-    console.error(`Failed because ${reason}`)
+    console.error(`Failed because ${reason}`);
     res.status(500).send(`Something went wrong! reason: ${reason}`);
   });
 });
