@@ -14,6 +14,8 @@
 
 Simply use the `/pub` slash command in your Slack channel to start a voting round.
 
+![Screen Recording 2019-06-25 at 01 45 pm](https://user-images.githubusercontent.com/892142/60099619-f0392c00-974f-11e9-8ad7-532848d3cbc9.gif)
+
 ## Deploy
 
 You can deploy your own version using the serverless framework with the deploy command:
