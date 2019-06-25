@@ -12,7 +12,6 @@ provider:
   region: eu-west-1
   environment:
     SERVERLESS_STAGE: ${env:SERVERLESS_STAGE, 'dev'}
-    SLACK_API_TOKEN: ${env:SLACK_API_TOKEN}
     SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
     SLACK_CLIENT_ID: ${env:SLACK_CLIENT_ID}
     SLACK_CLIENT_SECRET: ${env:SLACK_CLIENT_SECRET}

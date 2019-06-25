@@ -18,14 +18,16 @@ const app = new App({
 /**
  * Slash command
  */
-app.command('/pub', async ({ ack, body }): Promise<void> => {
+app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
+  ack();
+
   const channelId: string = body.channel_id;
   const userId: string = body.user_id;
 
   try {
     await startRound(channelId, userId);
   } catch (error) {
-    return ack({
+    return respond({
       response_type: 'ephemeral',
       text: 'There is a pub vote in this channel already',
     });
@@ -33,7 +35,7 @@ app.command('/pub', async ({ ack, body }): Promise<void> => {
 
   console.log(`Starting pub round in ${channelId}`);
 
-  return ack({
+  return respond({
     response_type: 'in_channel',
     text: '',
     blocks: [
@@ -197,14 +199,15 @@ app.action('end_action', async ({
  */
 expressApp.get('/slack/installation', (_req: Request, res: Response): void => {
   const clientId = process.env.SLACK_CLIENT_ID;
-  const scopesCsv = 'commands,users:read,users:read.email,team:read';
-  const state = 'randomly-generated-string';
+  const scopesCsv = 'commands,bot,chat:write:bot';
+  const state = Math.random().toString(36).substring(2, 15);
   const url = `https://slack.com/oauth/authorize?client_id=${clientId}&scope=${scopesCsv}&state=${state}`;
+
   res.redirect(url);
 });
 
 expressApp.get('/slack/oauth', (req: Request, res: Response): void => {
-  const client = new WebClient(process.env.SLACK_API_TOKEN);
+  const client = new WebClient();
 
   client.oauth.access({
     code: req.query.code,
