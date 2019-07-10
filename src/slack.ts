@@ -16,7 +16,7 @@ const app = new App({
 });
 
 /**
- * Main slash command
+ * Main main slash command.
  */
 app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
   ack();
@@ -30,7 +30,7 @@ app.command('/pub', async ({ ack, body, respond }): Promise<void> => {
 });
 
 /**
- * Yes button action
+ * Yes button action.
  */
 app.action('yes_action', async ({
   body,
@@ -50,7 +50,7 @@ app.action('yes_action', async ({
 });
 
 /**
- * No button action
+ * No button action.
  */
 app.action('no_action', async ({
   body,
@@ -69,7 +69,7 @@ app.action('no_action', async ({
 });
 
 /**
- * End round button action
+ * End round button action.
  */
 app.action('end_action', async ({
   body,
@@ -88,7 +88,7 @@ app.action('end_action', async ({
 });
 
 /**
- * Bot installation routes
+ * Bot installation routes.
  */
 expressApp.get('/slack/installation', (_req: Request, res: Response): void => {
   const clientId = process.env.SLACK_CLIENT_ID;

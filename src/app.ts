@@ -1,5 +1,5 @@
 import { RespondArguments } from '@slack/bolt';
-import { startRound, getRoundData, addVote, removeVote, endRound } from './db';
+import { createRound, getRoundData, addVoteToRound, removeVoteFromRound, deleteRound } from './db';
 
 /**
  * Start a new round.
@@ -9,7 +9,7 @@ import { startRound, getRoundData, addVote, removeVote, endRound } from './db';
  */
 export async function start(channelId: string, userId: string): Promise<RespondArguments> {
   try {
-    await startRound(channelId, userId);
+    await createRound(channelId, userId);
   } catch (error) {
     return {
       response_type: 'ephemeral',
@@ -80,9 +80,9 @@ export async function yes(channelId: string, userId: string, userName: string): 
   console.log(`Someones on it ${userId}`);
 
   const data = await getRoundData(channelId);
-  const users: string[] = data.Item ? data.Item.users as string[] : [];
+  const votes: string[] = data.Item ? data.Item.votes as string[] : [];
 
-  if (users.includes(userId)) {
+  if (votes.includes(userId)) {
     return {
       response_type: 'ephemeral',
       replace_original: false,
@@ -90,7 +90,7 @@ export async function yes(channelId: string, userId: string, userName: string): 
     };
   }
 
-  await addVote(channelId, userId);
+  await addVoteToRound(channelId, userId);
 
   return {
     response_type: 'ephemeral',
@@ -108,7 +108,7 @@ export async function yes(channelId: string, userId: string, userName: string): 
 export async function no(channelId: string, userId: string): Promise<RespondArguments>  {
   console.log(`Someone is not ${userId}`);
 
-  await removeVote(channelId, userId);
+  await removeVoteFromRound(channelId, userId);
 
   return {
     response_type: 'ephemeral',
@@ -118,7 +118,7 @@ export async function no(channelId: string, userId: string): Promise<RespondArgu
 }
 
 /**
- * Record an end round command.
+ * End the round and return the results.
  *
  * @param channelId
  * @param userId
@@ -127,7 +127,7 @@ export async function end(channelId: string, userId: string): Promise<RespondArg
   let data;
 
   try {
-    data = await endRound(channelId, userId);
+    data = await deleteRound(channelId, userId);
   } catch (error) {
     return {
       response_type: 'ephemeral',
@@ -138,9 +138,9 @@ export async function end(channelId: string, userId: string): Promise<RespondArg
 
   console.log(`Round ended by ${userId}`);
 
-  const users: string[] = data.Attributes ? data.Attributes.users as string[] : [];
-  const count: number = users.length;
-  const userString: string = users.map((user): string => `<@${user}>`).join(', ');
+  const votes: string[] = data.Attributes ? data.Attributes.votes as string[] : [];
+  const count: number = votes.length;
+  const userString: string = votes.map((user): string => `<@${user}>`).join(', ');
 
   let text: string;
 

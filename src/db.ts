@@ -3,34 +3,50 @@ import { PutItemOutput, GetItemOutput, UpdateItemOutput, DeleteItemOutput } from
 import { PromiseResult } from 'aws-sdk/lib/request';
 
 const table = process.env.DYNAMODB_TABLE as string;
-
 const getClient = (): DynamoDB.DocumentClient => new DynamoDB.DocumentClient();
 
-export const startRound = (id: string, userId: string): Promise<PromiseResult<PutItemOutput, AWSError>> => getClient().put({
+/**
+ * Create a new round item in the database.
+ *
+ * @param channelId
+ * @param userId
+ */
+export const createRound = (channelId: string, userId: string): Promise<PromiseResult<PutItemOutput, AWSError>> => getClient().put({
   TableName: table,
   Item: {
-    id,
+    channelId,
     userId,
-    users: [],
+    votes: [],
   },
-  ConditionExpression: 'attribute_not_exists(id)',
+  ConditionExpression: 'attribute_not_exists(channelId)',
 }).promise();
 
-export const getRoundData = (id: string): Promise<PromiseResult<GetItemOutput, AWSError>> => getClient().get({
+/**
+ * Get the current round data.
+ *
+ * @param channelId
+ */
+export const getRoundData = (channelId: string): Promise<PromiseResult<GetItemOutput, AWSError>> => getClient().get({
   TableName: table,
   Key: {
-    id,
+    channelId,
   },
 }).promise();
 
-export const addVote = (id: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => getClient().update({
+/**
+ * Add a vote to a round.
+ *
+ * @param channelId
+ * @param userId
+ */
+export const addVoteToRound = (channelId: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => getClient().update({
   TableName: table,
   Key: {
-    id,
+    channelId,
   },
-  UpdateExpression: 'SET #users = list_append(#users, :value)',
+  UpdateExpression: 'SET #votes = list_append(#votes, :value)',
   ExpressionAttributeNames: {
-    '#users': 'users',
+    '#votes': 'votes',
   },
   ExpressionAttributeValues: {
     ':value': [
@@ -40,31 +56,43 @@ export const addVote = (id: string, userId: string): Promise<PromiseResult<Updat
   ReturnValues: 'ALL_NEW',
 }).promise();
 
-export const removeVote = async (id: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => {
-  const data = await getRoundData(id);
+/**
+ * Remove a vote from a round
+ *
+ * @param channelId
+ * @param userId
+ */
+export const removeVoteFromRound = async (channelId: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => {
+  const data = await getRoundData(channelId);
 
-  const users: string[] = data.Item ? data.Item.users as string[] : [];
-  const filteredUsers = users.filter((user): boolean => user !== userId);
+  const votes: string[] = data.Item ? data.Item.votes as string[] : [];
+  const filteredVotes = votes.filter((user): boolean => user !== userId);
 
   return getClient().update({
     TableName: table,
     Key: {
-      id,
+      channelId,
     },
-    UpdateExpression: 'SET #users = :value',
+    UpdateExpression: 'SET #votes = :value',
     ExpressionAttributeNames: {
-      '#users': 'users',
+      '#votes': 'votes',
     },
     ExpressionAttributeValues: {
-      ':value': filteredUsers,
+      ':value': filteredVotes,
     },
   }).promise();
 };
 
-export const endRound = (id: string, userId: string): Promise<PromiseResult<DeleteItemOutput, AWSError>> => getClient().delete({
+/**
+ * Delete a round.
+ *
+ * @param channelId
+ * @param userId
+ */
+export const deleteRound = (channelId: string, userId: string): Promise<PromiseResult<DeleteItemOutput, AWSError>> => getClient().delete({
   TableName: table,
   Key: {
-    id,
+    channelId,
   },
   ConditionExpression: '#userId = :userId',
   ExpressionAttributeNames: {
