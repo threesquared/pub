@@ -29,7 +29,7 @@ describe('Start round', () => {
 
     const response = await start('channelId', 'userId');
 
-    expect(response.text).toEqual('There is a pub vote in this channel already');
+    expect(response.text).toContain('in this channel already');
     expect(putMock).toBeCalled();
   });
 });
@@ -53,7 +53,14 @@ describe('Yes vote', () => {
 
     expect(response.text).toEqual('Yass userName!');
     expect(getMock).toBeCalled();
-    expect(updateMock).toBeCalled();
+    expect(updateMock).toBeCalledWith(
+      expect.objectContaining({
+        ExpressionAttributeValues: {
+          ':value': ['userId'],
+        },
+      }),
+      expect.any(Function),
+    );
   });
 
   test('Will not let a user vote yes twice', async () => {
@@ -69,7 +76,7 @@ describe('Yes vote', () => {
 
     const response = await yes('channelId', 'userId', 'userName');
 
-    expect(response.text).toEqual('You have already voted');
+    expect(response.text).toContain('already voted');
     expect(getMock).toBeCalled();
   });
 });
@@ -78,7 +85,7 @@ describe('No vote', () => {
   test('Can record a valid no vote', async () => {
     const getMock = jest.fn().mockReturnValue(Promise.resolve({
       Item: {
-        users: ['userId'],
+        users: ['userId', 'otherUser'],
       },
     }));
 
@@ -91,9 +98,16 @@ describe('No vote', () => {
 
     const response = await no('channelId', 'userId');
 
-    expect(response.text).toEqual('Well you suck');
+    expect(response.text).toContain('you suck');
     expect(getMock).toBeCalled();
-    expect(updateMock).toBeCalled();
+    expect(updateMock).toBeCalledWith(
+      expect.objectContaining({
+        ExpressionAttributeValues: {
+          ':value': ['otherUser'],
+        },
+      }),
+      expect.any(Function),
+    );
   });
 });
 
@@ -111,11 +125,11 @@ describe('End round', () => {
 
     const response = await end('channelId', 'userId');
 
-    expect(response.text).toEqual('Round ended with 3 people on it: <@userId>, <@userId2>, <@userId3> Assemble!');
+    expect(response.text).toContain('3 people on it: <@userId>, <@userId2>, <@userId3>');
     expect(deleteMock).toBeCalled();
   });
 
-  test('Can end a round without enough people', async () => {
+  test('Can end a round with not enough people', async () => {
     const deleteMock = jest.fn().mockReturnValue(Promise.resolve({
       Attributes: {
         users: ['userId'],
@@ -128,11 +142,11 @@ describe('End round', () => {
 
     const response = await end('channelId', 'userId');
 
-    expect(response.text).toEqual('Not enough people are on it, try harder next time');
+    expect(response.text).toContain('Not enough people are on it');
     expect(deleteMock).toBeCalled();
   });
 
-  test('Will not let another user end the round', async () => {
+  test('Will not let another user end someone elses round', async () => {
     const deleteMock = jest.fn().mockRejectedValue(new Error('Fail'));
 
     AWSMock.mock('DynamoDB.DocumentClient', 'delete', deleteMock);
@@ -141,7 +155,7 @@ describe('End round', () => {
 
     const response = await end('channelId', 'otherUserId');
 
-    expect(response.text).toEqual('You did not start this round');
+    expect(response.text).toContain('did not start this round');
     expect(deleteMock).toBeCalled();
   });
 });
