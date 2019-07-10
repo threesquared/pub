@@ -1,5 +1,6 @@
 # Pub?
 
+[![Build Status](https://travis-ci.com/threesquared/pub.svg?branch=master)](https://travis-ci.com/threesquared/pub)
 ![GitHub package.json version](https://img.shields.io/github/package-json/v/threesquared/pub.svg)
 ![Code Climate maintainability](https://img.shields.io/codeclimate/maintainability-percentage/threesquared/pub.svg)
 ![GitHub](https://img.shields.io/github/license/threesquared/pub.svg)

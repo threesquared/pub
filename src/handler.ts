@@ -1,7 +1,7 @@
 import { createServer, proxy } from 'aws-serverless-express';
 import { APIGatewayEvent, Context, Callback } from 'aws-lambda';
 import { Server } from 'http';
-import expressApp from './app';
+import expressApp from './slack';
 
 export const app = (
   event: APIGatewayEvent,

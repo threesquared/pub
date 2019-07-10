@@ -3,6 +3,10 @@
   "parserOptions": {
       "project": "./tsconfig.json"
   },
+  "env": {
+    "jest": true,
+    "node": true
+  },
   "plugins": [
     "@typescript-eslint"
   ],
@@ -18,6 +22,7 @@
     "@typescript-eslint/indent": ["error", 2],
     "@typescript-eslint/camelcase": ["error", { "properties": "never" }],
     "@typescript-eslint/no-unused-vars": "error",
+    "@typescript-eslint/explicit-function-return-type": ["error", { "allowExpressions": true }],
     "object-curly-newline": ["error", {
       "ObjectExpression": "always",
       "ObjectPattern": { "multiline": true }

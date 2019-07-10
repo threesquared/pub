@@ -3,9 +3,10 @@ import { PutItemOutput, GetItemOutput, UpdateItemOutput, DeleteItemOutput } from
 import { PromiseResult } from 'aws-sdk/lib/request';
 
 const table = process.env.DYNAMODB_TABLE as string;
-const dynamo = new DynamoDB.DocumentClient();
 
-export const startRound = (id: string, userId: string): Promise<PromiseResult<PutItemOutput, AWSError>> => dynamo.put({
+const getClient = (): DynamoDB.DocumentClient => new DynamoDB.DocumentClient();
+
+export const startRound = (id: string, userId: string): Promise<PromiseResult<PutItemOutput, AWSError>> => getClient().put({
   TableName: table,
   Item: {
     id,
@@ -15,14 +16,14 @@ export const startRound = (id: string, userId: string): Promise<PromiseResult<Pu
   ConditionExpression: 'attribute_not_exists(id)',
 }).promise();
 
-export const getRoundData = (id: string): Promise<PromiseResult<GetItemOutput, AWSError>> => dynamo.get({
+export const getRoundData = (id: string): Promise<PromiseResult<GetItemOutput, AWSError>> => getClient().get({
   TableName: table,
   Key: {
     id,
   },
 }).promise();
 
-export const addVote = (id: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => dynamo.update({
+export const addVote = (id: string, userId: string): Promise<PromiseResult<UpdateItemOutput, AWSError>> => getClient().update({
   TableName: table,
   Key: {
     id,
@@ -45,7 +46,7 @@ export const removeVote = async (id: string, userId: string): Promise<PromiseRes
   const users: string[] = data.Item ? data.Item.users as string[] : [];
   const filteredUsers = users.filter((user): boolean => user !== userId);
 
-  return dynamo.update({
+  return getClient().update({
     TableName: table,
     Key: {
       id,
@@ -60,7 +61,7 @@ export const removeVote = async (id: string, userId: string): Promise<PromiseRes
   }).promise();
 };
 
-export const endRound = (id: string, userId: string): Promise<PromiseResult<DeleteItemOutput, AWSError>> => dynamo.delete({
+export const endRound = (id: string, userId: string): Promise<PromiseResult<DeleteItemOutput, AWSError>> => getClient().delete({
   TableName: table,
   Key: {
     id,
