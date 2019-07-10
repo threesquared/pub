@@ -38,7 +38,7 @@ describe('Yes vote', () => {
   test('Can record a valid yes vote', async () => {
     const getMock = jest.fn().mockReturnValue(Promise.resolve({
       Item: {
-        users: [],
+        votes: [],
       },
     }));
 
@@ -66,7 +66,7 @@ describe('Yes vote', () => {
   test('Will not let a user vote yes twice', async () => {
     const getMock = jest.fn().mockReturnValue(Promise.resolve({
       Item: {
-        users: ['userId'],
+        votes: ['userId'],
       },
     }));
 
@@ -85,7 +85,7 @@ describe('No vote', () => {
   test('Can record a valid no vote', async () => {
     const getMock = jest.fn().mockReturnValue(Promise.resolve({
       Item: {
-        users: ['userId', 'otherUser'],
+        votes: ['userId', 'otherUser'],
       },
     }));
 
@@ -115,7 +115,7 @@ describe('End round', () => {
   test('Can end a round with enough people', async () => {
     const deleteMock = jest.fn().mockReturnValue(Promise.resolve({
       Attributes: {
-        users: ['userId', 'userId2', 'userId3'],
+        votes: ['userId', 'userId2', 'userId3'],
       },
     }));
 
@@ -132,7 +132,7 @@ describe('End round', () => {
   test('Can end a round with not enough people', async () => {
     const deleteMock = jest.fn().mockReturnValue(Promise.resolve({
       Attributes: {
-        users: ['userId'],
+        votes: ['userId'],
       },
     }));
 
