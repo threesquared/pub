@@ -10,12 +10,14 @@ const getClient = (): DynamoDB.DocumentClient => new DynamoDB.DocumentClient();
  *
  * @param channelId
  * @param userId
+ * @param ttl
  */
-export const createRound = (channelId: string, userId: string): Promise<PromiseResult<PutItemOutput, AWSError>> => getClient().put({
+export const createRound = (channelId: string, userId: string, ttl: number): Promise<PromiseResult<PutItemOutput, AWSError>> => getClient().put({
   TableName: table,
   Item: {
     channelId,
     userId,
+    ttl,
     votes: [],
   },
   ConditionExpression: 'attribute_not_exists(channelId)',

@@ -1,3 +1,4 @@
+import moment from 'moment';
 import { RespondArguments } from '@slack/bolt';
 import { createRound, getRoundData, addVoteToRound, removeVoteFromRound, deleteRound } from './db';
 
@@ -8,8 +9,10 @@ import { createRound, getRoundData, addVoteToRound, removeVoteFromRound, deleteR
  * @param userId
  */
 export async function start(channelId: string, userId: string): Promise<RespondArguments> {
+  const ttl: number = moment().endOf('day').valueOf();
+
   try {
-    await createRound(channelId, userId);
+    await createRound(channelId, userId, ttl);
   } catch (error) {
     return {
       response_type: 'ephemeral',
