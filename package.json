@@ -19,7 +19,7 @@
     "aws-serverless-express": "^3.3.6",
     "express": "^4.17.1",
     "moment": "^2.24.0",
-    "serverless": "^1.41.1"
+    "serverless": "^1.83.3"
   },
   "devDependencies": {
     "@serverless/event-mocks": "^1.1.1",
